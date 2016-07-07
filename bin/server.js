@@ -4,43 +4,68 @@
  */
 
 var io = require("socket.io")(10413);
+
 var socketData = new Map();
+var socketNames = new Set();
 
 var online = {
-    [Symbol.iterator]: function* (){
+    [Symbol.iterator]: function*(){
         for(let data of socketData.values()) yield data.username;
     }
 };
 
-console.log('bind on 10413');
-
 io.on('connection', socket => {
-    console.log('connection:', socket.client.id);
+    console.log('conne:', socket.client.id);
 
     socket.on('hello', username => {
         console.log('hello:', socket.client.id);
 
-        username = username || socket.client.id;
+        if(!username) return socket.emit('hello', {
+            ok: false,
+            message: "Username required!"
+        });
 
-        socketData.set(socket.client.id, { username });
-        socket.emit('hello', { ok: true, message: `Hello, ${username}! This is CLI Hearthstone!` });
+        else if(socketNames.has(username)) return socket.emit('hello', {
+            ok: false,
+            message: `Your username "${username}" is already taken!`
+        });
+
+        socketNames.add(username);
+        socketData.set(socket.client.id, { username, date: new Date() });
+
+        socket.emit('hello', {
+            ok: true,
+            message: `Welcome to the server, ${username}!`
+        });
+
+        io.emit('message', `${username} join the server!`);
     });
 
     socket.on('command', command => {
+        console.log('comma:', socket.client.id);
+
+        if(!socketData.has(socket.client.id)) return socket.emit('command', 'Unauthorized');
+
         switch(command.toLowerCase().trim()){
             case 'online':
-                socket.emit('command', `Online: ${[...online].join(', ')}`);
+                let onlinePlayers = [...online];
+                socket.emit('command', `Current online: ${onlinePlayers.join(', ')} (total ${onlinePlayers.length})`);
                 break;
 
             default:
-                socket.emit('command', `${command}: Command not found`);
+                socket.emit('command', `${command}: command not found`);
         }
     });
 
     socket.on('disconnect', () => {
-        console.log('disconnect:', socket.client.id);
+        console.log('disco:', socket.client.id);
 
-        io.emit('message', `${socketData.get(socket.client.id).username} left the server!`);
+        if(!socketData.has(socket.client.id)) return;
+        let username = socketData.get(socket.client.id).username;
+
+        socketNames.delete(username);
         socketData.delete(socket.client.id);
+
+        io.emit('message', `${username} left the server!`);
     });
 });

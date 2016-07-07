@@ -3,32 +3,43 @@
  * @since 2016-07-07
  */
 
+var chalk = require('chalk');
+
 var readline = require('readline');
 var rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
 
+function print(msg, prompt = true){
+    readline.cursorTo(process.stdout, 0);
+    console.log(msg);
+    
+    if(prompt) rl.prompt(true);
+}
+
 var io = require('socket.io-client');
 var socket, username, hostname;
 
-rl.question('Connect to: ', (address) => {
+rl.question(chalk.yellow('Address: '), (address) => {
     if(!address.includes('@')){
-        console.error('The address must be <username>@<host>.');
+        print(chalk.red('The address must be <username>@<host>.'), false);
         process.exit();
     }
 
     [username, hostname] = address.split('@');
-    console.log(`connecting to ${hostname}...`);
+    print(chalk.yellow(`Connecting to ${hostname}...`));
 
     socket = io(`http://${hostname}:10413`);
 
     socket.on('connect', connect);
-    socket.on('hello', hello);
+    socket.on('hello',   hello);
     socket.on('command', command);
     socket.on('message', message);
 
-    rl.on('line', line => socket.emit('command', line));
+    rl.on('line', line => {
+        if(line && line.trim().length > 0) socket.emit('command', line);
+    });
 });
 
 function connect(){
@@ -37,19 +48,17 @@ function connect(){
 
 function hello(res){
     if(!res.ok){
-        console.error(res.message);
+        print(res.message, 'error');
         process.exit();
     }
 
-    console.log(res.message);
-    rl.prompt();
+    print(chalk.yellow(res.message));
 }
 
 function command(res){
-    console.log(res);
-    rl.prompt();
+    print(chalk.yellow(res));
 }
 
 function message(msg){
-    console.log(msg);
+    print(chalk.cyan.bold(msg));
 }
