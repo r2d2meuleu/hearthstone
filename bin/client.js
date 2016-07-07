@@ -38,7 +38,7 @@ rl.question(chalk.yellow('Address: '), (address) => {
     socket.on('message', message);
 
     rl.on('line', line => {
-        if(line && line.trim().length > 0) socket.emit('command', line);
+        if(line && (line = line.trim()).length > 1) socket.emit(line.startsWith('/') ? 'command' : 'message', line);
     });
 });
 

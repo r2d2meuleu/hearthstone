@@ -5,14 +5,16 @@
 
 var io = require("socket.io")(10413);
 
-var socketData = new Map();
-var socketNames = new Set();
+var socketData = new Map(); //socket.client.id -> object { username, ...etc }
+var socketNames = new Map(); //string -> socket
 
 var online = {
     [Symbol.iterator]: function*(){
         for(let data of socketData.values()) yield data.username;
     }
 };
+
+var usernameRule = /^[a-z][a-z0-9]*([-.][a-z0-9]+){0,2}$/;
 
 io.on('connection', socket => {
     console.log('conne:', socket.client.id);
@@ -22,50 +24,84 @@ io.on('connection', socket => {
 
         if(!username) return socket.emit('hello', {
             ok: false,
-            message: "Username required!"
+            message: "[server] Username required!"
+        });
+
+        username = username.toLowerCase();
+
+        if(!username.match(usernameRule)) return socket.emit('hello', {
+            ok: false,
+            message: "[server] Wrong username!"
         });
 
         else if(socketNames.has(username)) return socket.emit('hello', {
             ok: false,
-            message: `Your username "${username}" is already taken!`
+            message: `[server] Your username "${username}" is already taken!`
         });
 
-        socketNames.add(username);
+        socketNames.set(username, socket);
         socketData.set(socket.client.id, { username, date: new Date() });
 
         socket.emit('hello', {
             ok: true,
-            message: `Welcome to the server, ${username}!`
+            message: `[server] Welcome to the server, ${username}!`
         });
 
-        io.emit('message', `${username} join the server!`);
+        io.emit('message', `[server] ${username} join the server!`);
+    });
+
+    socket.on('message', message => {
+        console.log('messa:', socket.client.id);
+
+        let data = socketData.get(socket.client.id);
+        if(!data) return socket.emit('command', 'Unauthorized');
+
+        io.emit('message', `[public] ${data.username}: ${message}`);
     });
 
     socket.on('command', command => {
         console.log('comma:', socket.client.id);
 
-        if(!socketData.has(socket.client.id)) return socket.emit('command', 'Unauthorized');
+        let data = socketData.get(socket.client.id);
+        if(!data) return socket.emit('command', 'Unauthorized');
 
-        switch(command.toLowerCase().trim()){
+        let [cmd, ...args] = command.substring(1).trim().split(' ');
+
+        switch(cmd.toLowerCase()){
             case 'online':
                 let onlinePlayers = [...online];
-                socket.emit('command', `Current online: ${onlinePlayers.join(', ')} (total ${onlinePlayers.length})`);
+                socket.emit('command', `[server] current online: ${onlinePlayers.join(', ')} (total ${onlinePlayers.length})`);
+                break;
+
+            case 'say':
+                let [target, ...msg] = args;
+
+                target = target.toLowerCase();
+                msg = `[private] [${data.username} -> ${target}] ${msg.join(' ')}`;
+
+                if(!socketNames.has(target)) socket.emit('message', `[private] ${target}: user not found`);
+                else{
+                    socket.emit('message', msg);
+                    socketNames.get(target).emit('message', msg);
+                }
                 break;
 
             default:
-                socket.emit('command', `${command}: command not found`);
+                socket.emit('command', `[server] ${command}: command not found`);
         }
     });
 
     socket.on('disconnect', () => {
         console.log('disco:', socket.client.id);
+        
+        let data = socketData.get(socket.client.id);
+        if(!data) return;
 
-        if(!socketData.has(socket.client.id)) return;
-        let username = socketData.get(socket.client.id).username;
+        let username = data.username;
 
         socketNames.delete(username);
         socketData.delete(socket.client.id);
 
-        io.emit('message', `${username} left the server!`);
+        io.emit('message', `[server] ${username} left the server!`);
     });
 });
