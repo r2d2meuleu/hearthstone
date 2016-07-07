@@ -68,6 +68,10 @@ io.on('connection', socket => {
         let [cmd, ...args] = command.substring(1).trim().split(' ');
 
         switch(cmd.toLowerCase()){
+            default:
+                socket.emit('command', `[server] ${cmd}: command not found`);
+                break;
+
             case 'online':
                 let onlinePlayers = [...online];
                 socket.emit('command', `[server] current online: ${onlinePlayers.join(', ')} (total ${onlinePlayers.length})`);
@@ -80,14 +84,8 @@ io.on('connection', socket => {
                 msg = `[private] [${data.username} -> ${target}] ${msg.join(' ')}`;
 
                 if(!socketNames.has(target)) socket.emit('message', `[private] ${target}: user not found`);
-                else{
-                    socket.emit('message', msg);
-                    socketNames.get(target).emit('message', msg);
-                }
+                else [socket.emit('message', msg), socketNames.get(target)].forEach(peer => peer.emit('message', msg));
                 break;
-
-            default:
-                socket.emit('command', `[server] ${command}: command not found`);
         }
     });
 
