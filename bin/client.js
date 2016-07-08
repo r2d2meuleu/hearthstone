@@ -9,7 +9,13 @@ var screen = blessed.screen({
     smartCSR: true,
     dockBorders: true,
     fullUnicode: true,
-    title: 'Hearthstone'
+    title: 'Hearthstone',
+
+    cursor: {
+        artificial: true,
+        shape: 'underline',
+        blink: true
+    }
 });
 
 screen.on('destroy', () => process.exit(0));
@@ -22,7 +28,7 @@ var logger = blessed.log({
     tags: true, keys: true, mouse: true, hidden: true,
     border: 'line', label: ' {blue-fg}Messages{/} ',
 
-    style: { fg: 'yellow' },
+    style: { fg: 'white' },
     scrollable: true, scrollback: 512
 });
 
@@ -32,8 +38,10 @@ var commandTextbox = blessed.textbox({
     padding: { top: 0, left: 1, bottom: 0, right: 1 },
 
     tags: true, keys: true, mouse: true, hidden: true,
-    border: 'line', style: { fg: 'cyan' }, inputOnFocus: true
+    border: 'line', style: { fg: 'yellow' }, inputOnFocus: true
 });
+
+commandTextbox.on('submit', onCommandAreaSubmit);
 
 var prompt = blessed.prompt({
     parent: screen,
@@ -68,22 +76,22 @@ screen.render();
 var io = require('socket.io-client');
 var socket, username, hostname;
 
-prompt.input('{yellow-fg}Address: {/}', (error, address) => {
-    if(error) return screen.destroy();
-    if(!address || !address.includes('@')) return message.error('The address must be username@host.', screen.destroy);
+function initialize(){
+    prompt.input('{yellow-fg}Address: {/}', (error, address) => {
+        if(!address) return screen.destroy();
+        if(!address.includes('@')) return message.error('The address must be {bold}username@hostname{/}.', initialize);
 
-    [username, hostname] = address.split('@');
-    loading.load(`Connecting to ${hostname}...`);
+        [username, hostname] = address.split('@').map(str => str.trim());
 
-    socket = io(`http://${hostname}:10413`);
+        loading.load(`Connecting to ${hostname}...`);
+        socket = io(`http://${hostname}:10413`);
 
-    socket.on('connect', onConnect);
-    socket.on('hello',   onHello);
-    socket.on('command', onCommand);
-    socket.on('message', onMessage);
-
-    commandTextbox.on('submit', onCommandAreaSubmit);
-});
+        socket.on('connect', onConnect);
+        socket.on('hello',   onHello);
+        socket.on('command', onCommand);
+        socket.on('message', onMessage);
+    });
+}
 
 function onCommandAreaSubmit(command){
     if(command && (command = command.trim()).length > 1){
@@ -102,7 +110,7 @@ function onConnect(){
 
 function onHello(res){
     loading.stop();
-    if(!res.ok) return message.error(res.message, screen.destroy);
+    if(!res.ok) return message.error(res.message, initialize);
 
     screen.title = `Hearthstone: ${username}@${hostname}`;
 
@@ -114,9 +122,11 @@ function onHello(res){
 }
 
 function onCommand(res){
-    logger.log(res);
+    logger.log(`{yellow-fg}${res}{/}`);
 }
 
 function onMessage(msg){
-    logger.log(`{cyan-fg}${msg}{/}`);
+    logger.log(msg);
 }
+
+initialize();
