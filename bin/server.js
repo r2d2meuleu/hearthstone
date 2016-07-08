@@ -24,19 +24,19 @@ io.on('connection', socket => {
 
         if(!username) return socket.emit('hello', {
             ok: false,
-            message: "[server] Username required!"
+            message: "Username required!"
         });
 
         username = username.toLowerCase();
 
         if(!username.match(usernameRule)) return socket.emit('hello', {
             ok: false,
-            message: "[server] Wrong username!"
+            message: "Wrong username!"
         });
 
         else if(socketNames.has(username)) return socket.emit('hello', {
             ok: false,
-            message: `[server] Your username "${username}" is already taken!`
+            message: `Your username "${username}" is already taken!`
         });
 
         socketNames.set(username, socket);
