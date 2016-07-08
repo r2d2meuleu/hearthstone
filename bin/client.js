@@ -12,6 +12,8 @@ var screen = blessed.screen({
     title: 'Hearthstone'
 });
 
+screen.on('destroy', () => process.exit(0));
+
 var logger = blessed.log({
     parent: screen,
     width: '100%', height: '100%-2', top: 0, left: 0,
@@ -24,12 +26,13 @@ var logger = blessed.log({
     scrollable: true, scrollback: 512
 });
 
-var commandArea = blessed.textarea({
+var commandTextbox = blessed.textbox({
     parent: screen,
     width: '100%', height: 3, bottom: 0, left: 0,
+    padding: { top: 0, left: 1, bottom: 0, right: 1 },
 
     tags: true, keys: true, mouse: true, hidden: true,
-    border: 'line', style: { fg: 'cyan' }
+    border: 'line', style: { fg: 'cyan' }, inputOnFocus: true
 });
 
 var prompt = blessed.prompt({
@@ -79,14 +82,18 @@ prompt.input('{yellow-fg}Address: {/}', (error, address) => {
     socket.on('command', onCommand);
     socket.on('message', onMessage);
 
-    commandArea.on('focus', () => commandArea.readInput(sendCommand));
+    commandTextbox.on('submit', onCommandAreaSubmit);
 });
 
-function sendCommand(){
-    let command = commandArea.getValue();
+function onCommandAreaSubmit(command){
+    if(command && (command = command.trim()).length > 1){
+        if(command.toLowerCase() === '/exit') return screen.destroy();
+        socket.emit(command.startsWith('/') ? 'command' : 'message', command);
+    }
 
-    if(command && (command = command.trim()).length > 1) socket.emit(command.startsWith('/') ? 'command' : 'message', command);
-    commandArea.clearValue();
+    commandTextbox.clearInput();
+    commandTextbox.focus();
+    screen.render();
 }
 
 function onConnect(){
@@ -97,8 +104,11 @@ function onHello(res){
     loading.stop();
     if(!res.ok) return message.error(res.message, screen.destroy);
 
+    screen.title = `Hearthstone: ${username}@${hostname}`;
+
     logger.show();
-    commandArea.show();
+    commandTextbox.show();
+    commandTextbox.focus();
 
     logger.log(res.message);
 }

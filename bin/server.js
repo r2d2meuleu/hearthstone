@@ -84,7 +84,7 @@ io.on('connection', socket => {
                 msg = `[private] [${data.username} -> ${target}] ${msg.join(' ')}`;
 
                 if(!socketNames.has(target)) socket.emit('message', `[private] ${target}: user not found`);
-                else [socket.emit('message', msg), socketNames.get(target)].forEach(peer => peer.emit('message', msg));
+                else [socket, socketNames.get(target)].forEach(peer => peer.emit('message', msg));
                 break;
         }
     });
