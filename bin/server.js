@@ -5,7 +5,7 @@
 
 var io = require("socket.io")(10413);
 
-var socketData = new Map(); //socket.client.id -> object { username, ...etc }
+var socketData  = new Map(); //socket.client.id -> object { username, ...etc }
 var socketNames = new Map(); //string -> socket
 
 var online = {
@@ -22,32 +22,18 @@ io.on('connection', socket => {
     socket.on('hello', username => {
         console.log('hello:', socket.client.id);
 
-        if(!username) return socket.emit('hello', {
-            ok: false,
-            message: "Username required!"
-        });
+        if(!username) return socket.emit('hello', { ok: false, message: "Username required." });
+        username = username.trim().toLowerCase();
 
-        username = username.toLowerCase();
-
-        if(!username.match(usernameRule)) return socket.emit('hello', {
-            ok: false,
-            message: "Wrong username!"
-        });
-
-        else if(socketNames.has(username)) return socket.emit('hello', {
-            ok: false,
-            message: `Your username "${username}" is already taken!`
-        });
+        if(username.length < 3)           return socket.emit('hello', { ok: false, message: "The username must be at least 3 characters." });
+        if(!username.match(usernameRule)) return socket.emit('hello', { ok: false, message: `Your username "${username}" is isvalid.` });
+        if(socketNames.has(username))     return socket.emit('hello', { ok: false, message: `Your username "${username}" is already taken.` });
 
         socketNames.set(username, socket);
         socketData.set(socket.client.id, { username, date: new Date() });
 
-        socket.emit('hello', {
-            ok: true,
-            message: `[server] Welcome to the server, ${username}!`
-        });
-
-        io.emit('message', `[server] ${username} join the server!`);
+        socket.emit('hello', { ok: true, message: `[server] Welcome to Hearthstone server, ${username}!` });
+        io.emit('message', `[public] ${username} joined the server!`);
     });
 
     socket.on('message', message => {
@@ -100,6 +86,6 @@ io.on('connection', socket => {
         socketNames.delete(username);
         socketData.delete(socket.client.id);
 
-        io.emit('message', `[server] ${username} left the server!`);
+        io.emit('message', `[public] ${username} left the server!`);
     });
 });
