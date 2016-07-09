@@ -3,89 +3,27 @@
  * @since 2016-07-07
  */
 
-var io = require("socket.io")(10413);
-
-var socketData  = new Map(); //socket.client.id -> object { username, ...etc }
-var socketNames = new Map(); //string -> socket
-
-var online = {
-    [Symbol.iterator]: function*(){
-        for(let data of socketData.values()) yield data.username;
+const io = require("socket.io")(10413);
+const sockets = {
+    data: new Map(),  //socket.client.id -> object { username, ...etc }
+    names: new Map(), //string -> socket
+    online: {
+        [Symbol.iterator]: function*(){
+            for(let data of sockets.data.values()) yield data.username;
+        }
     }
 };
 
-var usernameRule = /^[a-z][a-z0-9]*([-.][a-z0-9]+){0,2}$/;
+const hello = require('../lib/server/socket/hello')(io, sockets);
+const message = require('../lib/server/socket/message')(io, sockets);
+const command = require('../lib/server/socket/command')(io, sockets);
+const disconnect = require('../lib/server/socket/disconnect')(io, sockets);
 
 io.on('connection', socket => {
     console.log('conne:', socket.client.id);
 
-    socket.on('hello', username => {
-        console.log('hello:', socket.client.id);
-
-        if(!username) return socket.emit('hello', { ok: false, message: "Username required." });
-        username = username.trim().toLowerCase();
-
-        if(username.length < 3)           return socket.emit('hello', { ok: false, message: "The username must be at least 3 characters." });
-        if(!username.match(usernameRule)) return socket.emit('hello', { ok: false, message: `Your username "${username}" is isvalid.` });
-        if(socketNames.has(username))     return socket.emit('hello', { ok: false, message: `Your username "${username}" is already taken.` });
-
-        socketNames.set(username, socket);
-        socketData.set(socket.client.id, { username, date: new Date() });
-
-        socket.emit('hello', { ok: true, message: `[server] Welcome to Hearthstone server, ${username}!` });
-        io.emit('message', `[public] ${username} joined the server!`);
-    });
-
-    socket.on('message', message => {
-        console.log('messa:', socket.client.id);
-
-        let data = socketData.get(socket.client.id);
-        if(!data) return socket.emit('command', 'Unauthorized');
-
-        io.emit('message', `[public] ${data.username}: ${message}`);
-    });
-
-    socket.on('command', command => {
-        console.log('comma:', socket.client.id);
-
-        let data = socketData.get(socket.client.id);
-        if(!data) return socket.emit('command', 'Unauthorized');
-
-        let [cmd, ...args] = command.substring(1).trim().split(' ');
-
-        switch(cmd.toLowerCase()){
-            default:
-                socket.emit('command', `[server] ${cmd}: command not found`);
-                break;
-
-            case 'online':
-                let onlinePlayers = [...online];
-                socket.emit('command', `[server] current online: ${onlinePlayers.join(', ')} (total ${onlinePlayers.length})`);
-                break;
-
-            case 'say':
-                let [target, ...msg] = args;
-
-                target = target.toLowerCase();
-                msg = `[private] [${data.username} -> ${target}] ${msg.join(' ')}`;
-
-                if(!socketNames.has(target)) socket.emit('message', `[private] ${target}: user not found`);
-                else [socket, socketNames.get(target)].forEach(peer => peer.emit('message', msg));
-                break;
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('disco:', socket.client.id);
-        
-        let data = socketData.get(socket.client.id);
-        if(!data) return;
-
-        let username = data.username;
-
-        socketNames.delete(username);
-        socketData.delete(socket.client.id);
-
-        io.emit('message', `[public] ${username} left the server!`);
-    });
+    socket.on('hello', hello(socket));
+    socket.on('message', message(socket));
+    socket.on('command', command(socket));
+    socket.on('disconnect', disconnect(socket));
 });
