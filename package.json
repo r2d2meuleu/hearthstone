@@ -12,12 +12,14 @@
     "socket.io": "^1.4.8",
     "socket.io-client": "^1.4.8"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "standard": "^10.0.2"
+  },
   "engines": {
     "node": ">= 6.0.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "standard",
     "client": "node bin/client",
     "server": "node bin/server"
   },
