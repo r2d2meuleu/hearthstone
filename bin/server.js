@@ -14,7 +14,7 @@ const sockets = {
   }
 }
 
-const hello = require('../lib/server/socket/hello')(io, sockets)
+const auth = require('../lib/server/socket/auth')(io, sockets)
 const message = require('../lib/server/socket/message')(io, sockets)
 const command = require('../lib/server/socket/command')(io, sockets)
 const disconnect = require('../lib/server/socket/disconnect')(io, sockets)
@@ -22,7 +22,7 @@ const disconnect = require('../lib/server/socket/disconnect')(io, sockets)
 io.on('connection', socket => {
   console.log('conne:', socket.client.id)
 
-  socket.on('hello', hello(socket))
+  socket.on('auth', auth(socket))
   socket.on('message', message(socket))
   socket.on('command', command(socket))
   socket.on('disconnect', disconnect(socket))

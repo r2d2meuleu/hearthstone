@@ -3,9 +3,9 @@
  * @since 2016-07-07
  */
 
-var blessed = require('blessed')
+const blessed = require('blessed')
 
-var screen = blessed.screen({
+const screen = blessed.screen({
   smartCSR: true,
   dockBorders: true,
   fullUnicode: true,
@@ -18,9 +18,12 @@ var screen = blessed.screen({
   }
 })
 
-screen.on('destroy', () => process.exit(0))
+screen.on('destroy', () => {
+  if (socket) socket.disconnect()
+  return process.exit(0)
+})
 
-var logger = blessed.log({
+const logger = blessed.log({
   parent: screen,
 
   width: '100%',
@@ -43,7 +46,7 @@ var logger = blessed.log({
   scrollback: 512
 })
 
-var commandTextbox = blessed.textbox({
+const commandTextbox = blessed.textbox({
   parent: screen,
 
   width: '100%',
@@ -65,7 +68,7 @@ var commandTextbox = blessed.textbox({
 
 commandTextbox.on('submit', onCommandAreaSubmit)
 
-var prompt = blessed.prompt({
+const prompt = blessed.prompt({
   parent: screen,
 
   width: 'half',
@@ -83,7 +86,7 @@ var prompt = blessed.prompt({
   label: ' {blue-fg}Hearthstone{/} '
 })
 
-var message = blessed.message({
+const message = blessed.message({
   parent: screen,
 
   width: 'shrink',
@@ -102,7 +105,7 @@ var message = blessed.message({
   label: ' {blue-fg}Hearthstone{/} '
 })
 
-var loading = blessed.loading({
+const loading = blessed.loading({
   parent: screen,
 
   width: 'shrink',
@@ -124,21 +127,25 @@ var loading = blessed.loading({
 screen.key('C-c', () => screen.destroy())
 screen.render()
 
-var io = require('socket.io-client')
-var socket, username, hostname
+const io = require('socket.io-client')
+let socket, username, hostname
 
 function initialize () {
+  const addressPattern = /^\s*([^\s@]+)@([^\s@]+)\s*$/g
+
   prompt.input('{yellow-fg}Address: {/}', (err, address) => {
     if (err || !address) return screen.destroy()
-    if (!address.includes('@')) return message.error('The address must be {bold}username@hostname{/}.', initialize);
 
-    [username, hostname] = address.split('@').map(str => str.trim())
+    const m = addressPattern.exec(address)
+    if (m === null) return message.error('The address must be {bold}username@hostname{/}.', initialize);
+
+    [username, hostname] = [m[1], m[2]]
 
     loading.load(`Connecting to ${hostname}...`)
     socket = io(`http://${hostname}:10413`)
 
     socket.on('connect', onConnect)
-    socket.on('hello', onHello)
+    socket.on('auth', onAuth)
     socket.on('command', onCommand)
     socket.on('message', onMessage)
   })
@@ -156,12 +163,16 @@ function onCommandAreaSubmit (command) {
 }
 
 function onConnect () {
-  socket.emit('hello', username)
+  socket.emit('auth', username)
 }
 
-function onHello (res) {
+function onAuth (res) {
   loading.stop()
-  if (!res.ok) return message.error(res.message, initialize)
+
+  if (!res.ok) {
+    message.error(res.message, initialize)
+    return socket.disconnect() // disconnect client if login fails
+  }
 
   screen.title = `Hearthstone: ${username}@${hostname}`
 
