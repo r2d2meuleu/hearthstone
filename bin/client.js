@@ -152,7 +152,7 @@ function initialize () {
 }
 
 function onCommandAreaSubmit (command) {
-  if (command && (command = command.trim()).length > 1) {
+  if (command && (command = command.trim()).length) {
     if (command.toLowerCase() === '/exit') return screen.destroy()
     socket.emit(command.startsWith('/') ? 'command' : 'message', command)
   }
