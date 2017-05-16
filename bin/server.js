@@ -15,5 +15,12 @@ const sockets = {
   }
 }
 
+const database = require('../lib/server/database')
 const connection = require('../lib/server/socket')
-io.on('connection', connection(io, sockets))
+
+const Card = require('../lib/server/models/Card')
+
+database().then(async cards => {
+  (await cards.find({})).forEach(x => console.log(new Card(x).toString()))
+  io.on('connection', connection(io, sockets))
+})
