@@ -2,9 +2,9 @@
   "name": "hearthstone-cli",
   "version": "1.0.0",
   "description": "Unofficial command line version of Hearthstone",
-  "main": "lib/client.js",
+  "main": "lib/client/index.js",
   "bin": {
-    "hearthstone": "client.js"
+    "hearthstone": "lib/client/index.js"
   },
   "dependencies": {
     "blessed": "^0.1.81",
@@ -18,8 +18,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "client": "node bin/client",
-    "server": "node bin/server"
+    "client": "node lib/client",
+    "server": "node lib/server"
   },
   "repository": {
     "type": "git",
